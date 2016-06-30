@@ -20,34 +20,34 @@ object SWRL_Reasoner2 {
   val rdf_type = "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>"
 
   def main(args: Array[String]): Unit = {
-    val sparkConf = new SparkConf()//.setAppName("test").setMaster("local[*]")
+    val sparkConf = new SparkConf().setAppName("test").setMaster("local[*]")
     val sc = new SparkContext(sparkConf)
-//        System.setProperty("hadoop.home.dir", "c:\\winutil\\")
+    System.setProperty("hadoop.home.dir", "c:\\winutil\\")
 
-//        val (compiledRuleSet, predicateMap) = RuleCompiler("RuleSet/0626.txt")
-    val (compiledRuleSet, predicateMap) = RuleCompiler(args(0))
+    val (compiledRuleSet, predicateMap) = RuleCompiler("RuleSet/0626.txt")
+    //    val (compiledRuleSet, predicateMap) = RuleCompiler(args(0))
 
-//        val parsedRuleSet = Source.fromFile("RuleSet/0626.txt").getLines().toList.map(RuleParser)
-    val parsedRuleSet = Source.fromFile(args(0)).getLines().toList.map(RuleParser)
+    val parsedRuleSet = Source.fromFile("RuleSet/0626.txt").getLines().toList.map(RuleParser)
+    //    val parsedRuleSet = Source.fromFile(args(0)).getLines().toList.map(RuleParser)
 
     val ruleDependency_Map = Create_ruleDependency_Map(parsedRuleSet)
 
     val ruleSet_Size = compiledRuleSet.size
-//        val triples = sc.textFile("Data/0626.txt").map(parseTriple)
-    val triples = sc.textFile(args(1)).map(parseTriple)
+    val triples = sc.textFile("Data/0626.txt").map(parseTriple)
+    //    val triples = sc.textFile(args(1)).map(parseTriple)
 
     var predicateRDD = Create_PredicateRDD(triples, predicateMap)
-//
-//    predicateRDD(0).collect().foreach(println)
-//    predicateRDD(1).collect().foreach(println)
+    //
+    //    predicateRDD(0).collect().foreach(println)
+    //    predicateRDD(1).collect().foreach(println)
 
     //    val (deliberationPlan_List, reasoningPlan) = compiledRuleSet
     val deliberationPlan_List = compiledRuleSet.map(t => t._1)
     val applyFunction_List = compiledRuleSet.map(t => t._2)
     val reasoningPlan_List = compiledRuleSet.map(t => t._3)
-//
-//    println("222222222222")
-//    applyFunction_List.foreach(println)
+    //
+    //    println("222222222222")
+    //    applyFunction_List.foreach(println)
 
     var deliberationRDD_List: Array[RDD[List[Triple]]] = new Array[RDD[List[Triple]]](ruleSet_Size)
     var oldDeliberationRDD_List: Array[RDD[List[Triple]]] = new Array[RDD[List[Triple]]](ruleSet_Size)
@@ -75,12 +75,12 @@ object SWRL_Reasoner2 {
       var ruleNum: Int = 0
       val deliberationTime = System.currentTimeMillis()
       for (deliberationPlan <- deliberationPlan_List) {
-//        println(deliberationPlan)
+        //        println(deliberationPlan)
         if (triggeredRule_List.contains(ruleNum)) {
-          deliberationRDD_List(ruleNum) = Create_DeliberationRDD(sc, predicateRDD, deliberationPlan, applyFunction_List(ruleNum)).subtract(oldDeliberationRDD_List(ruleNum)).repartition(4)//.persist(StorageLevel.MEMORY_ONLY_SER)
-          oldDeliberationRDD_List(ruleNum) = oldDeliberationRDD_List(ruleNum).union(deliberationRDD_List(ruleNum)).repartition(4)//.persist(StorageLevel.MEMORY_ONLY_SER)
+          deliberationRDD_List(ruleNum) = Create_DeliberationRDD(sc, predicateRDD, deliberationPlan, applyFunction_List(ruleNum)).subtract(oldDeliberationRDD_List(ruleNum)).repartition(4) //.persist(StorageLevel.MEMORY_ONLY_SER)
+          oldDeliberationRDD_List(ruleNum) = oldDeliberationRDD_List(ruleNum).union(deliberationRDD_List(ruleNum)).repartition(4) //.persist(StorageLevel.MEMORY_ONLY_SER)
 
-//          deliberationRDD_List(ruleNum).collect().foreach(println)
+          //          deliberationRDD_List(ruleNum).collect().foreach(println)
           val startTime = System.currentTimeMillis()
           val count = deliberationRDD_List(ruleNum).count()
           deliberatedCount += count
@@ -106,20 +106,26 @@ object SWRL_Reasoner2 {
         val reasoningTime = System.currentTimeMillis()
         for (num <- 0 to ruleSet_Size - 1) {
           if (triggeredRule_List.contains(num)) {
-            val inferredTriples: RDD[Triple] = Reasoning(deliberationRDD_List(num), reasoningPlan_List(num))
+            //            val inferredTriples: RDD[Triple] = Reasoning(deliberationRDD_List(num), reasoningPlan_List(num))
+            val (inferredTriples, history) = Reasoning(deliberationRDD_List(num), reasoningPlan_List(num))
             val startTime = System.currentTimeMillis()
             val count = inferredTriples.count()
             val endTime = System.currentTimeMillis()
-//            inferredTriples.collect().foreach(println)
+
+            history.collect().foreach(println)
+            //            inferredTriples.collect().foreach(println)
             println("     Rule " + num + " : Inferred = " + count + ", Time = " + (endTime - startTime).toFloat / 1000)
 
-            val p = if(reasoningPlan_List(num)(1)._2 == rdf_type){
+            val p = if (reasoningPlan_List(num)(1)._2 == rdf_type) {
               reasoningPlan_List(num)(2)._2
-            } else{
+            } else {
               reasoningPlan_List(num)(1)._2
             }
             val predIndex = predicateMap(p)
-            predicateRDD(predIndex) = predicateRDD(predIndex).union(inferredTriples).distinct().repartition(4)//.persist(StorageLevel.MEMORY_ONLY_SER)
+            predicateRDD(predIndex) = predicateRDD(predIndex).union(inferredTriples).distinct().repartition(4) //.persist(StorageLevel.MEMORY_ONLY_SER)
+//            val realInferred = predicateRDD(predIndex)
+            //List( (s, p, o), (s,p, o), ...)
+            //            val saveFile = deliberationRDD_List(num).map(t => (DeliberationToString(t), real)
             if (count > 0) {
               tmpRule_List ++= ruleDependency_Map.get(num).getOrElse(List())
             }

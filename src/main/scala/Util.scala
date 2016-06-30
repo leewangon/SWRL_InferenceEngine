@@ -207,4 +207,28 @@ object Util {
 
     (subject_Index, predicate, object_Index)
   }
+
+  def DeliberationToString(input:List[Triple])={
+    var tmp:List[String]= List()
+    for(t <- input){
+      if(t._2 == rdf_type){
+        val nt = (t._1, "type", t._3)
+        tmp ++= List(nt.toString().replaceAll(",", " "))
+      }
+      tmp ++= List(t.toString().replaceAll(",", " "))
+
+    }
+    tmp
+  }
+
+  def ConclusionToString(input:Triple)={
+      if(input._2 == rdf_type){
+        (input._1, "type", input._3).toString().replaceAll(",", " ")
+      }
+    else{
+        input.toString().replaceAll(",", " ")
+      }
+
+  }
+
 }
